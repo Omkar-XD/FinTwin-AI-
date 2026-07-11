@@ -26,8 +26,7 @@ Rules:
 - Prioritize practical steps the user can take in the next 30-90 days.
 - Use clear, jargon-free language.
 - Assign priority (high, medium, low) based on urgency and impact.
-- If context includes "rejectedExamples", these are recommendations real users across the system previously rejected as unhelpful, too generic, or irrelevant. Do NOT produce recommendations with similar phrasing, structure, or substance to these — treat them as known failure patterns to avoid, regardless of how well they seem to fit this user's numbers.
-- If context includes "approvedExamples", these are recommendations real users found valuable and approved. Favor similar specificity, tone, and structure to these — but always ground content in THIS user's actual data; never copy their numbers or facts verbatim.`;
+-If rejectedFeedback is present in the context, do not repeat the substance of any previously rejected recommendation — generate genuinely different advice instead.`;
 
 export const recommendationAgent = new Agent({
   id: 'recommendationAgent',
