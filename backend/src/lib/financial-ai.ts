@@ -82,8 +82,16 @@ function buildFallbackProjection(
   const cashFlow = Number(profile?.['cash_flow'] ?? 0);
 
   return {
-    projectedNetWorth: { months12: netWorth, months24: netWorth, months36: netWorth },
-    projectedCashFlow: { months12: cashFlow, months24: cashFlow, months36: cashFlow },
+    projectedNetWorth: {
+      months12: netWorth,
+      months24: netWorth,
+      months36: netWorth,
+    },
+    projectedCashFlow: {
+      months12: cashFlow,
+      months24: cashFlow,
+      months36: cashFlow,
+    },
     narrative: safeText,
     assumptions: ['Projection replaced because validation did not pass.'],
     risks: ['Review this scenario with a qualified financial advisor before acting.'],
@@ -94,7 +102,11 @@ async function getCurrentProfileAndRisk(userId: string) {
   const supabase = getSupabase();
 
   const [profileResult, riskResult] = await Promise.all([
-    supabase.from('financial_profiles').select('*').eq('user_id', userId).maybeSingle(),
+    supabase
+      .from('financial_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle(),
     supabase
       .from('risk_scores')
       .select('*')
@@ -104,10 +116,18 @@ async function getCurrentProfileAndRisk(userId: string) {
       .maybeSingle(),
   ]);
 
-  if (profileResult.error) throw profileResult.error;
-  if (riskResult.error) throw riskResult.error;
+  if (profileResult.error) {
+    throw profileResult.error;
+  }
 
-  return { profile: profileResult.data, riskScore: riskResult.data };
+  if (riskResult.error) {
+    throw riskResult.error;
+  }
+
+  return {
+    profile: profileResult.data,
+    riskScore: riskResult.data,
+  };
 }
 
 export async function getCurrentRiskProfile(userId: string) {
@@ -129,7 +149,11 @@ export async function runScenarioSimulation(
   const currencySymbol = resolveCurrencySymbol(profile?.['currency'] as string | null);
   const baseline = buildBaselineFinancialProfile(profile as Record<string, unknown> | null, currencySymbol);
   const scenarioParameters = normalizeScenarioParameters(scenarioType, params);
-  const scenarioContext = buildScenarioContext({ baseline, scenarioType, scenarioParameters });
+  const scenarioContext = buildScenarioContext({
+    baseline,
+    scenarioType,
+    scenarioParameters,
+  });
   const memory = await retrieveMemory(
     userId,
     `past simulations current debt ${scenarioType} ${JSON.stringify(scenarioParameters)}`,
@@ -141,7 +165,10 @@ export async function runScenarioSimulation(
     financialProfile: profile,
     riskScore,
     currencySymbol,
-    scenario: { type: scenarioType, params: scenarioParameters },
+    scenario: {
+      type: scenarioType,
+      params: scenarioParameters,
+    },
     scenarioContext,
     memory,
   };
@@ -150,7 +177,6 @@ export async function runScenarioSimulation(
     console.error('Scenario simulation generation failed; using fallback projection:', error);
     return buildFallbackProjection(profile, 'Unable to produce a projection from the available data.');
   });
-
   const simulationValidationContext: SimulationValidationContext = {
     scenarioContext: scenarioContext as ScenarioContext,
     currentProfile: profile as Record<string, unknown> | null,
@@ -169,10 +195,17 @@ export async function runScenarioSimulation(
   const validation = await validateOutput({
     mode: ValidationMode.SIMULATION,
     text: JSON.stringify(projection),
-    context: { ...context, simulationValidationContext },
-    metadata: { agentName: 'scenarioSimulationAgent', userId, scenarioType, projectionHorizon: '12/24/36 months' },
+    context: {
+      ...context,
+      simulationValidationContext,
+    },
+    metadata: {
+      agentName: 'scenarioSimulationAgent',
+      userId,
+      scenarioType,
+      projectionHorizon: '12/24/36 months',
+    },
   });
-
   const enkryptStatus = resolveEnkryptStatus(
     validation.safetyPassed && validation.factualPassed,
     [...validation.safetyIssues, ...validation.factualIssues],
@@ -196,7 +229,9 @@ export async function runScenarioSimulation(
     .select('id')
     .single();
 
-  if (insertError) throw insertError;
+  if (insertError) {
+    throw insertError;
+  }
 
   const memorySummary = [
     `Simulation for user ${userId}`,
@@ -226,7 +261,10 @@ export async function runScenarioSimulation(
     console.error('Qdrant simulation memory failed; continuing without memory context:', error);
   }
 
-  return { projectedOutcome, simulationId: savedSimulation.id };
+  return {
+    projectedOutcome,
+    simulationId: savedSimulation.id,
+  };
 }
 
 export async function getFreshRecommendation(
@@ -237,18 +275,23 @@ export async function getFreshRecommendation(
   const { profile, riskScore } = await getCurrentProfileAndRisk(userId);
 
   // Query used to find semantically similar PRIOR feedback across ALL users —
-  // deliberately not scoped to this user, and deliberately anchored to the
-  // profile's own shape (income/expense/risk pattern) rather than free text,
-  // so it surfaces feedback on similar financial situations, not just similar
-  // wording of the current question.
+  // deliberately not scoped to this user, and anchored to the profile's own
+  // shape (income/expenses/risk score) rather than free text, so it surfaces
+  // feedback on similar financial situations, not just similar wording.
   const feedbackQuery =
     question ??
     `financial recommendation for income ${profile?.['monthly_income'] ?? 'unknown'} ` +
       `expenses ${profile?.['monthly_expenses'] ?? 'unknown'} risk score ${riskScore?.['risk_score'] ?? 'unknown'}`;
 
   const [profileHistory, pastRecommendations, rejectedExamples, approvedExamples] = await Promise.all([
-    retrieveMemory(userId, 'financial profile history and snapshots', { type: 'profile_snapshot', limit: 3 }),
-    retrieveMemory(userId, question ?? 'past financial recommendations', { type: 'recommendation', limit: 3 }),
+    retrieveMemory(userId, 'financial profile history and snapshots', {
+      type: 'profile_snapshot',
+      limit: 3,
+    }),
+    retrieveMemory(userId, question ?? 'past financial recommendations', {
+      type: 'recommendation',
+      limit: 3,
+    }),
     retrieveRecommendationFeedbackExamples(feedbackQuery, 'rejected', 3),
     retrieveRecommendationFeedbackExamples(feedbackQuery, 'approved', 3),
   ]);
@@ -269,7 +312,13 @@ export async function getFreshRecommendation(
   const validation = await validateOutput({
     mode: ValidationMode.RECOMMENDATION,
     text: generatedText,
-    context: { financialProfile: profile, riskScore, profileHistory, pastRecommendations, userQuestion: question },
+    context: {
+      financialProfile: profile,
+      riskScore,
+      profileHistory,
+      pastRecommendations,
+      userQuestion: question,
+    },
     metadata: { agentName: 'recommendationAgent', userId },
   });
 
@@ -293,9 +342,14 @@ export async function getFreshRecommendation(
     .select('id')
     .single();
 
-  if (insertError) throw insertError;
+  if (insertError) {
+    throw insertError;
+  }
 
-  const recommendationSummary = [`Recommendations for user ${userId}`, content].join('\n\n');
+  const recommendationSummary = [
+    `Recommendations for user ${userId}`,
+    content,
+  ].join('\n\n');
 
   try {
     const vector = await embedText(recommendationSummary);
@@ -317,7 +371,11 @@ export async function getFreshRecommendation(
     console.error('Qdrant recommendation memory failed; continuing without memory context:', error);
   }
 
-  return { recommendationId: savedRecommendation.id, content, enkrypt_status: enkryptStatus };
+  return {
+    recommendationId: savedRecommendation.id,
+    content,
+    enkrypt_status: enkryptStatus,
+  };
 }
 
 export const toolRequestContextSchema = z.object({
