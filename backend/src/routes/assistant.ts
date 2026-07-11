@@ -268,6 +268,7 @@ assistantRoutes.post('/chat', async (c) => {
       netWorth: profileResult.data.net_worth,
       totalDebt: profileResult.data.total_debt,
       cashFlow: profileResult.data.cash_flow,
+      healthScore: profileResult.data.health_score,
       categories: profileResult.data.categories,
     }
   : null;
