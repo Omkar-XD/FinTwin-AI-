@@ -3,8 +3,7 @@ import type { AppBindings } from '../lib/auth.js';
 import { getSupabase } from '../lib/supabase.js';
 import { invalidateDashboardCache } from '../lib/dashboard-cache.js';
 import { errorResponse, messageFromError } from '../lib/http-error.js';
-import { randomUUID } from 'node:crypto';
-import { embedText, ensureCollectionAndUpsert, getQdrant } from '../lib/qdrant.js';
+import { recordRecommendationFeedback } from '../lib/qdrant.js';
 
 export const recommendationRoutes = new Hono<AppBindings>();
 
@@ -46,7 +45,7 @@ recommendationRoutes.post('/:id/approve', async (c) => {
       .update({ status: 'approved' })
       .eq('id', id)
       .eq('user_id', userId)
-      .select('id, user_id, status')
+      .select('id, user_id, status, content')
       .maybeSingle();
 
     if (error) {
@@ -59,6 +58,11 @@ recommendationRoutes.post('/:id/approve', async (c) => {
     }
 
     await invalidateDashboardCache(userId);
+
+    if (data.content) {
+      await recordRecommendationFeedback(data.id, data.content, 'approved');
+    }
+
     return c.json({ recommendation: data });
   } catch (error) {
     console.error('Approve recommendation route failed:', error);
@@ -88,30 +92,12 @@ recommendationRoutes.post('/:id/reject', async (c) => {
       return errorResponse(c, 404, 'Recommendation not found', 'NOT_FOUND');
     }
 
-    // NEW: record the rejection as feedback memory so future recommendation
-    // generation avoids repeating content the user already declined.
-    try {
-      const feedbackSummary = `User rejected this recommendation: ${data.content}`;
-      const vector = await embedText(feedbackSummary);
-      await ensureCollectionAndUpsert(
-        getQdrant(),
-        userId,
-        vector,
-        {
-          userId,
-          type: 'recommendation_feedback',
-          feedbackType: 'rejected',
-          recommendationId: id,
-          summary: feedbackSummary,
-          timestamp: new Date().toISOString(),
-        },
-        randomUUID(),
-      );
-    } catch (feedbackError) {
-      console.error('Failed to store rejection feedback; continuing:', feedbackError);
+    await invalidateDashboardCache(userId);
+
+    if (data.content) {
+      await recordRecommendationFeedback(data.id, data.content, 'rejected');
     }
 
-    await invalidateDashboardCache(userId);
     return c.json({ recommendation: data });
   } catch (error) {
     console.error('Reject recommendation route failed:', error);
