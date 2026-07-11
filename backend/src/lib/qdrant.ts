@@ -3,6 +3,7 @@ import { env } from './env.js';
 import { embedText, getConfiguredEmbeddingDimensions } from './gemini-embeddings.js';
 
 const USER_FINANCIAL_MEMORY_COLLECTION = 'user_financial_memory';
+const RECOMMENDATION_FEEDBACK_COLLECTION = 'recommendation_feedback';
 
 let qdrant: QdrantClient | null = null;
 
@@ -18,12 +19,12 @@ export function getQdrant(): QdrantClient {
 }
 
 export { embedText };
+
 async function ensureCollection(
   client: QdrantClient,
   vectorSize: number,
 ): Promise<void> {
   const api = client.api();
-
   try {
     await api.getCollection({ collection_name: USER_FINANCIAL_MEMORY_COLLECTION });
   } catch {
@@ -34,7 +35,6 @@ async function ensureCollection(
         distance: 'Cosine',
       },
     });
-
     try {
       await api.createFieldIndex({
         collection_name: USER_FINANCIAL_MEMORY_COLLECTION,
@@ -62,7 +62,6 @@ export async function ensureCollectionAndUpsert(
   try {
     const api = client.api();
     await ensureCollection(client, vector.length);
-
     await api.upsertPoints({
       collection_name: USER_FINANCIAL_MEMORY_COLLECTION,
       wait: true,
@@ -123,7 +122,6 @@ export async function retrieveMemory(
         },
       },
     ];
-
     if (options.type) {
       mustFilters.push({
         key: 'type',
@@ -132,7 +130,6 @@ export async function retrieveMemory(
         },
       });
     }
-
     const results = await client.api().searchPoints({
       collection_name: USER_FINANCIAL_MEMORY_COLLECTION,
       vector,
@@ -142,13 +139,103 @@ export async function retrieveMemory(
       limit: options.limit ?? 5,
       with_payload: true,
     });
-
     return (results.data?.result ?? []).map((point) => ({
       ...(point.payload ?? {}),
       score: point.score,
     })) as Record<string, unknown>[];
   } catch (error) {
     console.error('Qdrant retrieve failed; continuing without memory context:', error);
+    return [];
+  }
+}
+
+// --- Cross-user recommendation feedback --------------------------------
+// Deliberately a SEPARATE collection from user_financial_memory, and
+// deliberately never filtered by userId on read. The point is that user A
+// rejecting a recommendation should influence what user B is generated next
+// — this is a shared, system-wide feedback signal, not personal memory.
+
+async function ensureFeedbackCollection(
+  client: QdrantClient,
+  vectorSize: number,
+): Promise<void> {
+  const api = client.api();
+  try {
+    await api.getCollection({ collection_name: RECOMMENDATION_FEEDBACK_COLLECTION });
+  } catch {
+    await api.createCollection({
+      collection_name: RECOMMENDATION_FEEDBACK_COLLECTION,
+      vectors: {
+        size: vectorSize || getConfiguredEmbeddingDimensions(),
+        distance: 'Cosine',
+      },
+    });
+    try {
+      await api.createFieldIndex({
+        collection_name: RECOMMENDATION_FEEDBACK_COLLECTION,
+        field_name: 'outcome',
+        field_schema: 'keyword',
+      });
+    } catch (indexError) {
+      console.error('Failed to create payload index on recommendation_feedback:', indexError);
+    }
+  }
+}
+
+export async function recordRecommendationFeedback(
+  recommendationId: string,
+  content: string,
+  outcome: 'approved' | 'rejected',
+): Promise<void> {
+  try {
+    const client = getQdrant();
+    const vector = await embedText(content);
+    await ensureFeedbackCollection(client, vector.length);
+    await client.api().upsertPoints({
+      collection_name: RECOMMENDATION_FEEDBACK_COLLECTION,
+      wait: true,
+      points: [
+        {
+          id: `feedback:${recommendationId}`,
+          vector,
+          payload: {
+            content,
+            outcome,
+            recommendationId,
+            timestamp: new Date().toISOString(),
+          },
+        },
+      ],
+    });
+  } catch (error) {
+    console.error('Failed to record recommendation feedback; continuing without it:', error);
+  }
+}
+
+export async function retrieveRecommendationFeedbackExamples(
+  queryText: string,
+  outcome: 'approved' | 'rejected',
+  limit = 3,
+): Promise<{ content: string; timestamp: string }[]> {
+  try {
+    const client = getQdrant();
+    const vector = await embedText(queryText);
+    await ensureFeedbackCollection(client, vector.length);
+    const results = await client.api().searchPoints({
+      collection_name: RECOMMENDATION_FEEDBACK_COLLECTION,
+      vector,
+      filter: {
+        must: [{ key: 'outcome', match: { value: outcome } }],
+      },
+      limit,
+      with_payload: true,
+    });
+    return (results.data?.result ?? []).map((point) => ({
+      content: String(point.payload?.['content'] ?? ''),
+      timestamp: String(point.payload?.['timestamp'] ?? ''),
+    }));
+  } catch (error) {
+    console.error(`Failed to retrieve ${outcome} recommendation feedback; continuing without it:`, error);
     return [];
   }
 }
