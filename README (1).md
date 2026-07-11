@@ -4,8 +4,6 @@ An AI-powered personal finance platform that turns uploaded bank/loan/salary sta
 
 Monorepo containing a Hono/Mastra **backend** and a Next.js **frontend**.
 
----
-
 ## Table of Contents
 
 - [Architecture](#architecture)
