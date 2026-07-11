@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, XCircle, Lightbulb } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store';
+import { apiFetch } from '@/lib/api';
 
 interface RecommendationsDrawerProps {
   isOpen: boolean;
@@ -18,13 +19,8 @@ interface Recommendation {
   created_at: string;
 }
 
-// Adjust this if your app has a shared API client / base URL constant elsewhere —
-// mirroring whatever useSimulation() in lib/hooks.ts already points at.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawerProps) {
   const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token); // adjust field name if different in your store
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,18 +31,16 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/recommendations/pending/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to load recommendations');
-      const data = await res.json();
+      const data = await apiFetch<{ recommendations: Recommendation[] }>(
+        `/recommendations/pending/${user.id}`,
+      );
       setRecommendations(data.recommendations ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load recommendations');
     } finally {
       setIsLoading(false);
     }
-  }, [user, token]);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
@@ -57,11 +51,7 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     setActioningId(id);
     try {
-      const res = await fetch(`${API_BASE}/recommendations/${id}/${action}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Failed to ${action} recommendation`);
+      await apiFetch(`/recommendations/${id}/${action}`, { method: 'POST' });
       setRecommendations((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${action}`);
@@ -74,7 +64,6 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -83,7 +72,6 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
           />
 
-          {/* Drawer */}
           <motion.div
             initial={{ x: 500, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -91,7 +79,6 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
             transition={{ type: 'spring', damping: 30 }}
             className="fixed right-0 top-0 h-screen w-full max-w-md bg-background border-l border-border/40 z-50 flex flex-col overflow-hidden"
           >
-            {/* Header */}
             <div className="border-b border-border/40 p-6 flex items-center justify-between">
               <h2 className="text-lg font-semibold">AI Recommendations</h2>
               <button
@@ -102,7 +89,6 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
               </button>
             </div>
 
-            {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               {isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading recommendations...</p>
@@ -165,7 +151,6 @@ export function RecommendationsDrawer({ isOpen, onClose }: RecommendationsDrawer
               )}
             </div>
 
-            {/* Footer */}
             <div className="border-t border-border/40 p-6">
               <button
                 onClick={onClose}
