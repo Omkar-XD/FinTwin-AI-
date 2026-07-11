@@ -1,0 +1,57 @@
+# ==========================
+# Dependencies
+# ==========================
+**/node_modules/
+
+# ==========================
+# Next.js
+# ==========================
+frontend/.next/
+frontend/out/
+
+# ==========================
+# Backend
+# ==========================
+backend/dist/
+backend/build/
+
+# ==========================
+# Environment Variables
+# ==========================
+backend/.env
+frontend/.env
+.env
+.env.local
+.env.development
+.env.production
+
+# ==========================
+# Logs
+# ==========================
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# ==========================
+# Cache
+# ==========================
+.cache/
+.turbo/
+
+# ==========================
+# IDE
+# ==========================
+.vscode/
+.idea/
+
+# ==========================
+# OS Files
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# TypeScript
+# ==========================
+*.tsbuildinfo

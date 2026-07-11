@@ -1,0 +1,25 @@
+{
+  "name": "fintwin-ai-agent",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run backend:dev",
+    "build": "npm run backend:build",
+    "install:all": "npm install --workspaces",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:build": "npm --prefix backend run build",
+    "backend:typecheck": "npm --prefix backend run typecheck",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:lint": "npm --prefix frontend run lint",
+    "frontend:typecheck": "npm --prefix frontend run typecheck",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}
