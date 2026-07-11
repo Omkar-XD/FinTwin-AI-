@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 interface AIToolsRailProps {
-  onToolClick: (prompt: string) => void;
+  onToolClick: (tool: { id: string; prompt: string }) => void;
   isProcessing?: boolean;
 }
 
@@ -73,7 +73,7 @@ export function AIToolsRail({ onToolClick, isProcessing = false }: AIToolsRailPr
             transition={{ duration: 0.3, delay: idx * 0.05 }}
             whileHover={{ x: 3 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => onToolClick(tool.prompt)}
+            onClick={() => onToolClick(tool)}
             disabled={isProcessing}
             className="group relative overflow-hidden rounded-full border border-[#161616] border-b-[#374e72] bg-[linear-gradient(180deg,#5771a5_0%,#000_100%)] px-3 py-3 text-left text-white shadow-[0_0_18px_rgba(87,113,165,0.24),inset_0_1px_0_rgba(255,255,255,0.16)] transition-all hover:border-primary/40 hover:shadow-[0_0_24px_rgba(87,113,165,0.38),inset_0_1px_0_rgba(255,255,255,0.2)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
           >
