@@ -2,16 +2,15 @@
 
 import { motion } from 'framer-motion';
 import {
-  AlertTriangle,
-  FileText,
-  Lightbulb,
-  Sparkles,
   TrendingUp,
+  AlertTriangle,
+  Lightbulb,
+  FileText,
   Zap,
 } from 'lucide-react';
 
 interface AIToolsRailProps {
-  onToolClick: (tool: { id: string; prompt: string }) => void;
+  onToolClick: (prompt: string) => void;
   isProcessing?: boolean;
 }
 
@@ -55,13 +54,7 @@ const TOOLS = [
 
 export function AIToolsRail({ onToolClick, isProcessing = false }: AIToolsRailProps) {
   return (
-    <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border/40 bg-card/35 p-4 backdrop-blur-xl lg:flex">
-      <div className="mb-2 px-2">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Agents
-        </p>
-      </div>
-
+    <div className="w-64 bg-background/50 border-r border-border/40 flex flex-col gap-3 p-4 overflow-y-auto">
       {TOOLS.map((tool, idx) => {
         const Icon = tool.icon;
 
@@ -71,30 +64,25 @@ export function AIToolsRail({ onToolClick, isProcessing = false }: AIToolsRailPr
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: idx * 0.05 }}
-            whileHover={{ x: 3 }}
+            whileHover={{ x: 4 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => onToolClick(tool)}
+            onClick={() => onToolClick(tool.prompt)}
             disabled={isProcessing}
-            className="group relative overflow-hidden rounded-full border border-[#161616] border-b-[#374e72] bg-[linear-gradient(180deg,#5771a5_0%,#000_100%)] px-3 py-3 text-left text-white shadow-[0_0_18px_rgba(87,113,165,0.24),inset_0_1px_0_rgba(255,255,255,0.16)] transition-all hover:border-primary/40 hover:shadow-[0_0_24px_rgba(87,113,165,0.38),inset_0_1px_0_rgba(255,255,255,0.2)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="relative flex flex-col gap-2 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 border border-border/40 hover:border-border/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left"
           >
-            <span className="pointer-events-none absolute inset-0 rounded-full bg-primary/10 opacity-0 transition-opacity group-hover:opacity-100" />
-            <span className="relative flex items-center gap-3">
-              <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/30 text-white shadow-[0_0_14px_rgba(255,255,255,0.18)]">
-                <Icon className="h-4 w-4 drop-shadow-[0_0_8px_rgba(255,255,255,0.55)]" />
-                <Sparkles className="absolute -right-0.5 -top-0.5 h-3 w-3 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold leading-5 text-white [text-shadow:0_0_8px_rgba(255,255,255,0.35)]">
-                  {tool.title}
-                </span>
-                <span className="mt-0.5 block truncate text-xs leading-4 text-white/70">
-                  {tool.description}
-                </span>
-              </span>
-            </span>
+            {/* Icon */}
+            <div className="flex items-center gap-2">
+              <Icon className="w-5 h-5 text-primary flex-shrink-0" />
+              <h3 className="text-sm font-medium text-foreground">{tool.title}</h3>
+            </div>
+
+            {/* Description */}
+            <p className="text-xs text-muted-foreground leading-snug">
+              {tool.description}
+            </p>
           </motion.button>
         );
       })}
-    </aside>
+    </div>
   );
 }
