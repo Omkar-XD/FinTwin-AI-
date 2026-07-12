@@ -308,7 +308,6 @@ export async function extractFinancialProfileFromPdf(
       GEMINI_EXTRACTION_PROMPT,
       FINANCIAL_PROFILE_AGENT_INSTRUCTIONS,
     );
-
     let parsed: unknown;
     try {
       parsed = parseStrictJsonFromLLM(raw);
