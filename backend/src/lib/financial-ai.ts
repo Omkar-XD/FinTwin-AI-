@@ -13,9 +13,15 @@ import type { Json } from './database.types.js';
 import { ENKRYPT_SAFE_FALLBACK, validateOutput, ValidationMode } from './enkrypt.js';
 import type { SimulationValidationContext } from './validation/strategies/SimulationValidator.js';
 import { resolveEnkryptStatus, type EnkryptStatus } from './enkrypt-status.js';
-import { embedText, ensureCollectionAndUpsert, getQdrant, retrieveMemory } from './qdrant.js';
+import {
+  embedText,
+  ensureCollectionAndUpsert,
+  getQdrant,
+  retrieveMemory,
+  retrieveRecommendationFeedbackExamples,
+} from './qdrant.js';
 import { getSupabase } from './supabase.js';
-import { invalidateDashboardCache } from './dashboard-cache.js';   
+import { invalidateDashboardCache } from './dashboard-cache.js';
 import { resolveCurrencySymbol } from './currency.js';
 import {
   buildBaselineFinancialProfile,
@@ -268,7 +274,16 @@ export async function getFreshRecommendation(
   const supabase = getSupabase();
   const { profile, riskScore } = await getCurrentProfileAndRisk(userId);
 
-  const [profileHistory, pastRecommendations, rejectedFeedback] = await Promise.all([
+  // Query used to find semantically similar PRIOR feedback across ALL users —
+  // deliberately not scoped to this user, and anchored to the profile's own
+  // shape (income/expenses/risk score) rather than free text, so it surfaces
+  // feedback on similar financial situations, not just similar wording.
+  const feedbackQuery =
+    question ??
+    `financial recommendation for income ${profile?.['monthly_income'] ?? 'unknown'} ` +
+      `expenses ${profile?.['monthly_expenses'] ?? 'unknown'} risk score ${riskScore?.['risk_score'] ?? 'unknown'}`;
+
+  const [profileHistory, pastRecommendations, rejectedExamples, approvedExamples] = await Promise.all([
     retrieveMemory(userId, 'financial profile history and snapshots', {
       type: 'profile_snapshot',
       limit: 3,
@@ -277,10 +292,8 @@ export async function getFreshRecommendation(
       type: 'recommendation',
       limit: 3,
     }),
-    retrieveMemory(userId, question ?? 'rejected recommendations to avoid repeating', {
-      type: 'recommendation_feedback',
-      limit: 3,
-    }),
+    retrieveRecommendationFeedbackExamples(feedbackQuery, 'rejected', 3),
+    retrieveRecommendationFeedbackExamples(feedbackQuery, 'approved', 3),
   ]);
 
   const ragContext = {
@@ -288,7 +301,8 @@ export async function getFreshRecommendation(
     riskScore,
     profileHistory,
     pastRecommendations,
-    rejectedFeedback,
+    rejectedExamples: rejectedExamples.map((e) => e.content),
+    approvedExamples: approvedExamples.map((e) => e.content),
     userQuestion: question,
   };
 
