@@ -1,47 +1,38 @@
-import { cors } from "hono/cors";
-import { env } from "./env.js";
+import { cors } from 'hono/cors';
+import { env } from './env.js';
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  env.frontendUrl,
-].filter((origin): origin is string => Boolean(origin));
+export function getAllowedOrigins(): string[] {
+  const origins = new Set<string>();
+
+  if (env.nodeEnv !== 'production') {
+    origins.add('http://localhost:3000');
+  }
+
+  if (env.frontendUrl) {
+    origins.add(env.frontendUrl);
+  }
+
+  return Array.from(origins);
+}
 
 export const corsMiddleware = cors({
   origin: (origin) => {
-    // Requests like Postman or server-to-server may not send an Origin header
+    const allowedOrigins = getAllowedOrigins();
+
     if (!origin) {
-      return allowedOrigins[0];
+      return allowedOrigins[0] ?? '';
     }
 
-    // Allow only configured origins
     if (allowedOrigins.includes(origin)) {
       return origin;
     }
 
-    // Reject all others
-    return "";
+    return '';
   },
 
-  allowMethods: [
-    "GET",
-    "POST",
-    "PUT",
-    "PATCH",
-    "DELETE",
-    "OPTIONS",
-  ],
-
-  allowHeaders: [
-    "Content-Type",
-    "Authorization",
-  ],
-
-  exposeHeaders: [
-    "Content-Length",
-    "Content-Type",
-  ],
-
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposeHeaders: ['Content-Length', 'Content-Type'],
   credentials: true,
-
   maxAge: 86400,
 });

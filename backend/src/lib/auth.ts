@@ -19,6 +19,11 @@ function extractBearerToken(authHeader: string | undefined): string | null {
 
 export const supabaseAuthMiddleware = createMiddleware<AppBindings>(
   async (c, next) => {
+    if (c.req.method === 'OPTIONS') {
+      await next();
+      return;
+    }
+
     const token = extractBearerToken(c.req.header('Authorization'));
     if (!token) {
       return c.json({ error: 'Unauthorized' }, 401);

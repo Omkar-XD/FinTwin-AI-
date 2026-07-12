@@ -18,7 +18,6 @@ import {
   ensureCollectionAndUpsert,
   getQdrant,
   retrieveMemory,
-  retrieveRecommendationFeedbackExamples,
 } from './qdrant.js';
 import { getSupabase } from './supabase.js';
 import { invalidateDashboardCache } from './dashboard-cache.js';
@@ -283,7 +282,7 @@ export async function getFreshRecommendation(
     `financial recommendation for income ${profile?.['monthly_income'] ?? 'unknown'} ` +
       `expenses ${profile?.['monthly_expenses'] ?? 'unknown'} risk score ${riskScore?.['risk_score'] ?? 'unknown'}`;
 
-  const [profileHistory, pastRecommendations, rejectedExamples, approvedExamples] = await Promise.all([
+  const [profileHistory, pastRecommendations] = await Promise.all([
     retrieveMemory(userId, 'financial profile history and snapshots', {
       type: 'profile_snapshot',
       limit: 3,
@@ -292,8 +291,6 @@ export async function getFreshRecommendation(
       type: 'recommendation',
       limit: 3,
     }),
-    retrieveRecommendationFeedbackExamples(feedbackQuery, 'rejected', 3),
-    retrieveRecommendationFeedbackExamples(feedbackQuery, 'approved', 3),
   ]);
 
   const ragContext = {
@@ -301,8 +298,8 @@ export async function getFreshRecommendation(
     riskScore,
     profileHistory,
     pastRecommendations,
-    rejectedExamples: rejectedExamples.map((e) => e.content),
-    approvedExamples: approvedExamples.map((e) => e.content),
+    rejectedExamples: [],
+    approvedExamples: [],
     userQuestion: question,
   };
 
